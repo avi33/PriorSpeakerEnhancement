@@ -182,6 +182,65 @@ class MetricLogger:
                             time=str(iter_time),
                             data=str(data_time),
                             memory=torch.cuda.max_memory_allocated() / MB,
+                        ),
+                        end="\r"  # Carriage return to overwrite the line
+                    )
+                else:
+                    print(
+                        log_msg.format(
+                            i, len(iterable), eta=eta_string, meters=str(self), time=str(iter_time), data=str(data_time)
+                        ),
+                        end="\r"  # Carriage return to overwrite the line
+                    )
+            i += 1
+            end = time.time()
+        total_time = time.time() - start_time
+        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+        print(f"{header} Total time: {total_time_str} ({total_time / len(iterable):.4f} s / it)")
+        
+    def log_every_(self, iterable, print_freq, header=None):
+        i = 0
+        if not header:
+            header = ""
+        start_time = time.time()
+        end = time.time()
+        iter_time = SmoothedValue(fmt="{avg:.4f}")
+        data_time = SmoothedValue(fmt="{avg:.4f}")
+        space_fmt = ":" + str(len(str(len(iterable)))) + "d"
+        if torch.cuda.is_available():
+            log_msg = self.delimiter.join(
+                [
+                    header,
+                    "[{0" + space_fmt + "}/{1}]",
+                    "eta: {eta}",
+                    "{meters}",
+                    "time: {time}",
+                    "data: {data}",
+                    "max mem: {memory:.0f}",
+                ]
+            )
+        else:
+            log_msg = self.delimiter.join(
+                [header, "[{0" + space_fmt + "}/{1}]", "eta: {eta}", "{meters}", "time: {time}", "data: {data}"]
+            )
+        MB = 1024.0 * 1024.0
+        for obj in iterable:
+            data_time.update(time.time() - end)
+            yield obj
+            iter_time.update(time.time() - end)
+            if i % print_freq == 0 or i == len(iterable) - 1:
+                eta_seconds = iter_time.global_avg * (len(iterable) - i)
+                eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
+                if torch.cuda.is_available():
+                    print(
+                        log_msg.format(
+                            i,
+                            len(iterable),
+                            eta=eta_string,
+                            meters=str(self),
+                            time=str(iter_time),
+                            data=str(data_time),
+                            memory=torch.cuda.max_memory_allocated() / MB,
                         )
                     )
                 else:
@@ -195,48 +254,3 @@ class MetricLogger:
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print(f"{header} Total time: {total_time_str} ({total_time / len(iterable):.4f} s / it)")
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    with torch.no_grad():
-        correct = pred.eq(target.view(1, -1).expand_as(pred))
-    return [correct[:k].view(-1).float().sum(0) * 100. / batch_size for k in topk]
-
-
-def average_precision(output, target):
-    # sort examples
-    indices = output.argsort()[::-1]
-    # Computes prec@i
-    total_count_ = np.cumsum(np.ones((len(output), 1)))
-    target_ = target[indices]
-    ind = target_ == 1
-    pos_count_ = np.cumsum(ind)
-    total = pos_count_[-1]
-    pos_count_[np.logical_not(ind)] = 0
-    pp = pos_count_ / total_count_
-    precision_at_i_ = np.sum(pp)
-    precision_at_i = precision_at_i_/(total + epsilon)
-    return precision_at_i
-
-
-def mAP(targs, preds):
-    """Returns the model's average precision for each class
-    Return:
-        ap (FloatTensor): 1xK tensor, with avg precision for each class k
-    """
-    if np.size(preds) == 0:
-        return 0
-    ap = np.zeros((preds.shape[1]))
-    # compute average precision for each class
-    for k in range(preds.shape[1]):
-        # sort scores
-        scores = preds[:, k]
-        targets = targs[:, k]
-        # compute average precision
-        ap[k] = average_precision(scores, targets)
-    return 100*ap.mean()

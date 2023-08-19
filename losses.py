@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.nn.modules.loss import _WeightedLoss
 import numpy as np
 
+
 class LabelSmoothCrossEntropyLoss(_WeightedLoss):
     def __init__(self, weight=None, reduction='mean', smoothing=0.0):
         super().__init__(weight=weight, reduction=reduction)
@@ -36,11 +37,16 @@ class LabelSmoothCrossEntropyLoss(_WeightedLoss):
         elif self.reduction == 'mean':
             loss = loss.mean()
         return loss
+    
+    def compute_loss(self, preds, targets):
+        loss = self.forward(preds, targets)
+        return loss
 
 class HSIC(nn.Module):
-    def __init__(self, reduction="mean") -> None:
+    def __init__(self, n_classes, reduction="mean") -> None:
         super().__init__()
         self.reduction = reduction
+        self.n_classes = n_classes
     
     def forward(self, x, y, s_x=1, s_y=1):
         m,_ = x.shape #batch size
@@ -64,6 +70,10 @@ class HSIC(nn.Module):
         instances_norm = torch.sum(x**2,-1).reshape((-1,1))
         return -2*torch.mm(x,x.t()) + instances_norm + instances_norm.t()
     
+    def compute_loss(self, preds, targets, inputs):
+        loss = F.one_hot(targets, num_classes=self.n_classes)-preds, inputs.view(inputs.shape[0], -1)
+        return loss
+
 
 if __name__ == '__main__':
     pass

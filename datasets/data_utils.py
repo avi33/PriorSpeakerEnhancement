@@ -2,7 +2,7 @@ import torch
 
 def create_dataset(args):
     if args.dataset == 'cmuarctic':        
-        from cmudata import CMUDataset as Dataset        
+        from datasets.cmudata import CMUDataset as Dataset        
         train_set = Dataset(root=r"/media/avi/8E56B6E056B6C86B/datasets/ARCTIC8k", 
                             mode='train', 
                             segment_length=args.seq_len, 

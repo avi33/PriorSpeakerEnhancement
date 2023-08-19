@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from pathlib import Path
 import numpy as np
 import random
-from data.audio_augs import AudioAugs
+from datasets.audio_augs import AudioAugs
 import glob
 import json
 
@@ -51,7 +51,7 @@ class CMUDataset(torch.utils.data.Dataset):
     This is the main class that calculates the spectrogram and returns the
     spectrogram, audio pair.
     """
-    def __init__(self, root, mode, segment_length, sampling_rate, augment=None, trim=False, return_orig=False):
+    def __init__(self, root, mode, segment_length, sampling_rate, transforms=None, trim=False, return_orig=False):
         self.root = root
         self.mode = mode
         self.sampling_rate = sampling_rate
@@ -59,7 +59,7 @@ class CMUDataset(torch.utils.data.Dataset):
         self.trim = trim
         self.audio_files = self.__parse_data()                
         self.speakers = self.get_speakers()        
-        self.transform = AudioAugs(fs=sampling_rate, k_augs=augment) if augment else None
+        self.transform = AudioAugs(fs=sampling_rate, k_augs=transforms) if transforms else None
         self.num_speakers = len(self.speakers)
         self.spk2idx = dict(zip(self.speakers, range(self.num_speakers)))
         self.return_orig = return_orig     
