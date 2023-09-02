@@ -6,7 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 import yaml
 import argparse
 from pathlib import Path
-import utils.logger
+import utils.logger as logger
 from utils.helper_funcs import add_weight_decay, save_step
 
 
@@ -34,7 +34,10 @@ def parse_args():
     parser.add_argument("--ssl_model", default=None, type=Path)
     parser.add_argument("--save_interval", default=100, type=int)    
     parser.add_argument("--log_interval", default=100, type=int)
-    parser.add_argument("--use_fda", default=False, action="store_true")
+    parser.add_argument('--augs_signal', nargs='+', type=str,
+                        default=['amp', 'neg', 'tshift', 'tmask', 'ampsegment', 'cycshift'])
+    parser.add_argument('--augs_noise', nargs='+', type=str,
+                        default=['awgn', 'abgn', 'apgn', 'argn', 'avgn', 'aun', 'sine'])
     
     args = parser.parse_args()
     return args
@@ -62,7 +65,13 @@ def train():
     
     '''net'''
     from modules.models import Net
-    net = Net(emb_dim=128, n_classes=args.n_classes, nf=16, tf_type=args.tf_type, factors=[2, 2, 2], inp_sz=(32, 32))
+    fft_params = {"win_length": 
+                  512, 
+                  "hop_length": 128, 
+                  "n_fft": 512, 
+                  "return_complex": True}
+    
+    net = Net(emb_dim=128, nf=16, factors=[2, 2, 2], fft_params=fft_params)
     net.to(device)
     
     '''optimizer'''
@@ -90,9 +99,9 @@ def train():
         decay_per_epoch_orig = args.ema
 
     '''loss'''
-    from metrics.sisdr import SISDRLoss
+    from losses.sisdr import SISDRLoss
     l_sisdr = SISDRLoss(reduction="sum").to(device)
-    l_rec = nn.L1Loss(reduction="sum").to(device)    
+    l_rec = nn.L1Loss(reduction="sum").to(device)
 
     if load_root and load_root.exists():
         checkpoint = torch.load(load_root / "chkpnt.pt")
