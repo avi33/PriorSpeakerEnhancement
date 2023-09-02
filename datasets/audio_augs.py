@@ -395,7 +395,7 @@ class AudioAugs():
                 augs['ampsegment'] = RandomAmpSegment(p=p, low=0.5, high=1.3, max_len=int(0.1 * fs))
             elif aug == 'aun':
                 augs['aun'] = RandomAdditiveUN(p=p, snr_db=snr_db)            
-            elif augs['timestretch']:
+            elif aug == 'timestretch':
                 augs['timestretch'] = RandomTimeStretch(p=p, fs=fs)
             else:
                 raise ValueError("{} not supported".format(aug))
