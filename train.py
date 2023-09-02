@@ -6,9 +6,9 @@ from torch.utils.tensorboard import SummaryWriter
 import yaml
 import argparse
 from pathlib import Path
-import torchvision.transforms as T
-from helper_funcs import add_weight_decay, save_step
-import logger
+import utils.logger
+from utils.helper_funcs import add_weight_decay, save_step
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -90,7 +90,8 @@ def train():
         decay_per_epoch_orig = args.ema
 
     '''loss'''
-    from losses import LabelSmoothCrossEntropyLoss
+    from metrics.sisdr import SISDRLoss
+    l_sisdr = SISDRLoss(reduction="sum").to(device)
     l_rec = nn.L1Loss(reduction="sum").to(device)    
 
     if load_root and load_root.exists():
