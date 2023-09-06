@@ -1,3 +1,4 @@
+from typing import Any
 import numpy as np
 import torch
 import torchaudio
@@ -54,6 +55,7 @@ def change_rhythm_from_curve(audio, sr, mode="up", seg_size=0.16, silent_front=0
     n_segments = int(N // seg_size - silent_front - silent_end)
     
     rates = [1.0] * silent_front + list(gen_curve(n_segments, mode)) + [1.0] * silent_end
+    
 
     output_audio = []
     for i in range(n_segments):
@@ -65,7 +67,7 @@ def change_rhythm_from_curve(audio, sr, mode="up", seg_size=0.16, silent_front=0
     return output_audio
 
 
-class RandomTimeStretch:
+class RandomTimeManipulation:
     def __init__(self, p=0.5, fs=None):
         self.p = p
         self.fs = fs
@@ -74,8 +76,8 @@ class RandomTimeStretch:
     def __call__(self, sample):
         if random.random()<self.p:
             idx = random.randint(0, len(self.rhytm_modes)-1)
-            sample = change_rhytm_from_curve(sample.numpy(), mode=self.rhytm_modes[idx], sr=self.fs)
-            sample = torch.from_numpy(sample).float()
+            sample = change_rhythm_from_curve(sample.numpy(), mode=self.rhytm_modes[idx], sr=self.fs)
+            sample = torch.from_numpy(sample).float()            
         return sample
         
 
@@ -361,7 +363,7 @@ class RandomCyclicShift:
 
 
 class AudioAugs():
-    def __init__(self, k_augs, fs, p=0.5, snr_db=30):
+    def __init__(self, k_augs, fs, p=0.5, snr_db=30, fft_params=None):
         self.noise_vec = ['awgn', 'abgn', 'apgn', 'argn', 'avgn', 'aun', 'phn', 'sine']
         augs = {}
         for aug in k_augs:
@@ -395,8 +397,10 @@ class AudioAugs():
                 augs['ampsegment'] = RandomAmpSegment(p=p, low=0.5, high=1.3, max_len=int(0.1 * fs))
             elif aug == 'aun':
                 augs['aun'] = RandomAdditiveUN(p=p, snr_db=snr_db)            
-            elif aug == 'timestretch':
-                augs['timestretch'] = RandomTimeStretch(p=p, fs=fs)
+            elif aug == 'timestretch':            
+                augs['timestretch'] = RandomTimeStretch(p=p, fs=fs, fft_params=fft_params)
+            elif aug == 'timemanipulation':            
+                augs['timemanipulation'] = RandomTimeManipulation(p=p, fs=fs)            
             else:
                 raise ValueError("{} not supported".format(aug))
         self.augs = augs
@@ -415,5 +419,5 @@ class AudioAugs():
         return sample
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     pass

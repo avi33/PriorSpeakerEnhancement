@@ -64,14 +64,20 @@ def train():
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.batch_size, shuffle=False, drop_last=False, num_workers=8, pin_memory=True)
     
     '''net'''
-    from modules.models import Net
+    from modules.spk_classifier import SpkEncoder
     fft_params = {"win_length": 
                   512, 
                   "hop_length": 128, 
                   "n_fft": 512, 
-                  "return_complex": True}
+                  "return_complex": True, 
+                  "center": False}
     
-    net = Net(emb_dim=128, nf=16, factors=[2, 2, 2], fft_params=fft_params)
+    spk_enc_params = {"emb_dim": 512, 
+                      "nf": 256, 
+                      "factors": [2], 
+                      "fft_params": fft_params,
+                      }
+    net = SpkEncoder(kwargs=spk_enc_params)
     net.to(device)
     
     '''optimizer'''

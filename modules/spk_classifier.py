@@ -6,10 +6,10 @@ from modules.anti_aliasing_downsample import Down1d
 from modules.res_block import ResBlock1d
 
 class CNN(nn.Module):
-    def __init__(self, nf, factors=[2, 2, 2]) -> None:
+    def __init__(self, c_in, nf, factors=[2, 2, 2]) -> None:
         super().__init__()
         block = [
-            nn.Conv2d(1, nf, 5, 1, padding=2, padding_mode="reflect", bias=False),
+            nn.Conv1d(c_in, nf, 5, 1, padding=2, padding_mode="reflect", bias=False),
             nn.BatchNorm1d(nf),
             nn.LeakyReLU(0.2, True)            
         ]
@@ -42,21 +42,22 @@ class TFAggregation(nn.Module):
 
 class SpkEncoder(nn.Module):
     def __init__(self, kwargs) -> None:        
-        super().__init__()        
+        super().__init__()
+        self.fft_params = kwargs['fft_params']
         self.nf = kwargs['nf']
-        self.cnn = CNN(nf=16, factors=kwargs['factors'])
-        self.tf = TFAggregation(emb_dim=['emb_dim'], ff_dim=['emb_dim']*4, n_heads=2, n_layers=4, p=0.1)
-        self.fft_params = kwargs['fft_params']]
+        self.cnn = CNN(c_in=2*(self.fft_params['n_fft']//2+1), nf=self.nf, factors=kwargs['factors'])
+        self.tf = TFAggregation(emb_dim=kwargs['emb_dim'], ff_dim=kwargs['emb_dim']*4, n_heads=2, n_layers=4, p=0.1)        
 
-    def forward(self, x):
-        # x = F.pad(x, (self.fft_params['win_length']//2, self.fft_params['win_length']//))
-        X = torch.stft(x, **self.fft_params)        
+    def forward(self, x, emb_dim):
+        n_pad = (self.fft_params['win_length'] - self.fft_params['hop_length']) // 2
+        xp = F.pad(x, (n_pad, n_pad))
+        X = torch.stft(xp, **self.fft_params)        
         X = X.unsqueeze(2)
         X = torch.cat((X.real, X.imag), dim=2).contiguous()
         X = X.view(X.shape[0], -1, X.shape[-1]).contiguous()
-        x = self.cnn(x)
-        x = self.tf(x)
-        return x
+        X = self.cnn(X)
+        X = self.tf(X)
+        return X
 
 if __name__ == "__main__":    
     pass
