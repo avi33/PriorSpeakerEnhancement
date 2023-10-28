@@ -21,6 +21,7 @@ def parse_args():
     parser.add_argument("--n_classes", default=10, type=int)
     parser.add_argument("--seq_len", default=8192, type=int)
     parser.add_argument("--sampling_rate", default=16000, type=int)
+    parser.add_argument("--emb_dim", default=128, type=int)    
     '''optimizer'''
     parser.add_argument("--max_lr", default=3e-4, type=float)
     parser.add_argument("--wd", default=1e-4, type=float)
@@ -72,8 +73,8 @@ def train():
                   "return_complex": True, 
                   "center": False}
     
-    spk_enc_params = {"emb_dim": 512, 
-                      "nf": 256, 
+    spk_enc_params = {"emb_dim": args.emb_dim, 
+                      "nf": 128, 
                       "factors": [2], 
                       "fft_params": fft_params,
                       }
@@ -105,9 +106,20 @@ def train():
         decay_per_epoch_orig = args.ema
 
     '''loss'''
+    from losses.aam_softmax import AAMsoftmax
+    aam_sm = AAMsoftmax(m=0.2, s=30)    
+
     from losses.sisdr import SISDRLoss
     l_sisdr = SISDRLoss(reduction="sum").to(device)
-    l_rec = nn.L1Loss(reduction="sum").to(device)
+
+    from losses.label_smoothing_ce import LabelSmoothCrossEntropyLoss
+    l_cls_train = LabelSmoothCrossEntropyLoss(smoothing=0.1, reduction="mean")
+    
+    l_rec = nn.L1Loss(reduction="sum").to(device)        
+    l_cls_test = nn.CrossEntropyLoss(reduction="mean"
+                                     )
+    fc = torch.nn.Parameter(args.n_classes, args.emb_dim)
+    nn.init.xavier_normal_(fc.weight, gain=1)
 
     if load_root and load_root.exists():
         checkpoint = torch.load(load_root / "chkpnt.pt")
